@@ -54,8 +54,9 @@ export default function Home() {
       setLoading(false);
       return;
     }
-
-    const API = `https://www.omdbapi.com/?t=${movieName}&apikey=7f9a3b82`;
+    const ApiKey = process.env.NEXT_PUBLIC_API_KEY;
+    
+    const API = `https://www.omdbapi.com/?t=${movieName}&apikey=${ApiKey}`;
     try {
       const response = await fetch(API);
       if (!response.ok) {
