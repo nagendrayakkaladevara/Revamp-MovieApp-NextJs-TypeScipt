@@ -55,7 +55,7 @@ export default function Home() {
       return;
     }
     const ApiKey = process.env.NEXT_PUBLIC_API_KEY;
-    
+
     const API = `https://www.omdbapi.com/?t=${movieName}&apikey=${ApiKey}`;
     try {
       const response = await fetch(API);
@@ -161,7 +161,7 @@ export default function Home() {
                   alt="thumbnail"
                 /> */}
               </CardItem>
-              <div className="flex justify-center items-start flex-col gap-2">
+              <div className="flex justify-center items-start flex-col gap-2 mt-2">
                 <p>Actors - {movie?.Actors}</p>
                 <p>Director - {movie?.Director} | {movie?.Language}</p>
                 <p>Genre - {movie?.Genre}</p>
