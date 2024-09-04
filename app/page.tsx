@@ -6,10 +6,11 @@ import { cn } from "@/utils/cn";
 import { Label } from "@radix-ui/react-label";
 import { IconBrandGithub, IconBrandGoogle, IconBrandOnlyfans } from "@tabler/icons-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Footer from "@/components/footer";
 
 interface Movie {
   Title: string;
@@ -25,27 +26,87 @@ interface Movie {
   Genre: string
 }
 
+type MovieSuggestion = {
+  Title: string;
+  Year: string;
+  imdbID: string;
+};
+
+
 export default function Home() {
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const suggestionsRef = useRef<HTMLUListElement | null>(null);
 
   const [movieName, setMovieName] = useState<string>('');
   const [movie, setMovie] = useState<Movie | null>(null);
-  console.log("🚀 ~ Home ~ movie:", movie)
   const [loading, setLoading] = useState<boolean>(false);
   const [showResult, setShowResult] = useState<boolean>(false);
+  const [debouncedMovieName, setDebouncedMovieName] = useState(movieName);
+  const [suggestions, setSuggestions] = useState<MovieSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
+  // Debounce movie name input
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedMovieName(movieName);
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [movieName]);
+
+  // Fetch movie suggestions based on debounced input
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (debouncedMovieName.length > 2) {
+        setSuggestionsLoading(true);
+        try {
+          const ApiKey = process.env.NEXT_PUBLIC_API_KEY;
+          const response = await fetch(`https://www.omdbapi.com/?s=${debouncedMovieName}&apikey=${ApiKey}`);
+          const data = await response.json();
+
+          if (data.Search) {
+            setSuggestions(data.Search);
+          } else {
+            setSuggestions([]);
+          }
+        } catch (error) {
+          toast.error('Error fetching suggestions.');
+        } finally {
+          setSuggestionsLoading(false);
+        }
+      } else {
+        setSuggestions([]);
+      }
+    };
+
+    fetchSuggestions();
+  }, [debouncedMovieName]);
+
+  // Handle input field changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMovieName(e.target.value);
+    setShowSuggestions(true);
+  };
+
+  // Handle suggestion selection
+  const handleSuggestionClick = (Title: string) => {
+    setMovieName(Title);
+    setShowSuggestions(false);
+  };
+
+  // Handle form submission
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
 
     if (!movieName.trim()) {
       toast.error('Please enter a movie name.', {
-        position: "top-right",
+        position: 'top-right',
         autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
         style: {
           backgroundColor: 'black',
           color: 'white',
@@ -54,26 +115,16 @@ export default function Home() {
       setLoading(false);
       return;
     }
-    const ApiKey = process.env.NEXT_PUBLIC_API_KEY;
 
-    const API = `https://www.omdbapi.com/?t=${movieName}&apikey=${ApiKey}`;
     try {
-      const response = await fetch(API);
-      if (!response.ok) {
-        throw new Error('Failed to fetch movie');
-      }
+      const ApiKey = process.env.NEXT_PUBLIC_API_KEY;
+      const response = await fetch(`https://www.omdbapi.com/?t=${movieName}&apikey=${ApiKey}`);
       const data = await response.json();
 
-      if (data.Response === "False") {
-        // Movie not found
+      if (data.Response === 'False') {
         toast.error(data.Error, {
-          position: "top-right",
+          position: 'top-right',
           autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
           style: {
             backgroundColor: 'black',
             color: 'white',
@@ -82,19 +133,13 @@ export default function Home() {
         setMovie(null);
         setShowResult(false);
       } else {
-        // Movie found
         setMovie(data);
         setShowResult(true);
       }
     } catch (error) {
       toast.error('An error occurred while fetching the movie.', {
-        position: "top-right",
+        position: 'top-right',
         autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
         style: {
           backgroundColor: 'black',
           color: 'white',
@@ -106,13 +151,19 @@ export default function Home() {
     }
   };
 
-
+  // Convert minutes to hours and minutes format
   const convertMinutesToHours = (timeString: any) => {
-    const totalMinutes = parseInt(timeString?.replace(' min', ''), 10);
+    const totalMinutes = parseInt(timeString.replace(' min', ''), 10);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return `${hours} hr${hours !== 1 ? 's' : ''} ${minutes} min${minutes !== 1 ? 's' : ''}`;
   };
+
+  useEffect(() => {
+    if (suggestions.length > 0 && suggestionsRef.current) {
+      suggestionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [suggestions]);
 
   return (
     <>
@@ -153,13 +204,6 @@ export default function Home() {
                   src={movie?.Poster}
                   className="h-60 w-auto object-cover rounded-xl group-hover/card:shadow-xl" style={{ margin: "0 auto" }}
                 />
-                {/* <Image
-                  src="https://m.media-amazon.com/images/M/MV5BZGM5NjliODgtODVlOS00OWZmLWIzYzMtMTI2OWIzMTM1ZGRhXkEyXkFqcGdeQXVyNDUzOTQ5MjY@._V1_SX300.jpg"
-                  height="1000"
-                  width="1000"
-                  className="h-60 w-full object-cover rounded-xl group-hover/card:shadow-xl"
-                  alt="thumbnail"
-                /> */}
               </CardItem>
               <div className="flex justify-center items-start flex-col gap-2 mt-2">
                 <p>Actors - {movie?.Actors}</p>
@@ -201,7 +245,7 @@ export default function Home() {
               </p>
 
               <form className="my-8" onSubmit={handleSubmit}>
-                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-4">
+                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-4 relative">
                   <LabelInputContainer>
                     <Label htmlFor="firstname">Movie name</Label>
                     <Input
@@ -209,8 +253,23 @@ export default function Home() {
                       placeholder="Type here.."
                       type="text"
                       value={movieName}
-                      onChange={(e) => setMovieName(e.target.value)}
+                      onChange={handleInputChange}
+                      onFocus={() => inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                      ref={inputRef}
                     />
+                    {showSuggestions && suggestions.length > 0 && (
+                      <ul className="p-2 mt-2 absolute z-10 bg-slate-400 rounded overflow-y-auto top-36 list-none custom-scrollbar" style={{ maxHeight: "300px", width: "385px" }} ref={suggestionsRef}>
+                        {suggestionsLoading && (<>
+                          <p>loading..</p>
+                        </>)}
+
+                        {suggestions.map((movie) => (
+                          <li key={movie.imdbID} className="p-1 rounded-sm hover:bg-slate-200 hover:text-black" style={{ cursor: 'pointer' }} onClick={() => handleSuggestionClick(movie.Title)}>
+                            {movie.Title} ({movie.Year})
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </LabelInputContainer>
                 </div>
 
@@ -227,10 +286,8 @@ export default function Home() {
             </div>
           </div>
         </>)}
-
-
-
       </div>
+      <Footer />
     </>
   );
 }
